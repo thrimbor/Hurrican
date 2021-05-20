@@ -4,7 +4,7 @@ project(hurrican)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/3rdparty/")
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/3rdparty/" "${CMAKE_SOURCE_DIR}/3rdparty/sdl2-cmake-scripts")
 
 if(UNIX)
     set (CMAKE_CXX_FLAGS "-Wall -Wextra -pedantic -Wcast-align -Wcast-qual -Wctor-dtor-privacy -Wdisabled-optimization -Wformat=2 -Winit-self -Wmissing-include-dirs -Wold-style-cast -Woverloaded-virtual -Wredundant-decls -Wshadow -Wsign-promo -Wundef -Wno-unused -Wno-variadic-macros -Wno-parentheses -fdiagnostics-show-option")
@@ -425,22 +425,48 @@ if(UNIX)
     add_definitions(-DUSE_STORAGE_PATH="${CMAKE_INSTALL_PREFIX}/share/hurrican/")
 endif()
 
+OPTION(MODPLUG "Use MODPLUG natively" OFF)
+IF(MODPLUG)
+    ADD_DEFINITIONS(-DUSE_MODPLUG)
+    target_link_libraries(${PROJECT_NAME} modplug)
+ENDIF(MODPLUG)
+
 include_directories(${CMAKE_SOURCE_DIR}/src)
 include_directories(${CMAKE_SOURCE_DIR}/src/SDLPort)
 include_directories(${CMAKE_SOURCE_DIR}/3rdparty/glm)
 add_executable(hurrican ${HURRICAN_SOURCES})
 
 INCLUDE(FindOpenGL REQUIRED)
-set(SDL_BUILDING_LIBRARY TRUE)
-find_package(SDL REQUIRED)
-INCLUDE(FindSDL_mixer REQUIRED)
-INCLUDE(FindSDL_image REQUIRED)
+set(SDL2_BUILDING_LIBRARY TRUE)
+find_package(SDL2)
+if (${SDL2_FOUND})
+    find_package(SDL2_image REQUIRED)
+    find_package(SDL2_mixer REQUIRED)
+else()
+    set(SDL_BUILDING_LIBRARY TRUE)
+    find_package(SDL REQUIRED)
+    INCLUDE(FindSDL_mixer REQUIRED)
+    INCLUDE(FindSDL_image REQUIRED)
+endif()
 find_package(LibEpoxy 1.2 REQUIRED)
 
-include_directories(${SDL_INCLUDE_DIR})
 include_directories(${LibEpoxy_INCLUDE_DIRS})
 
-target_link_libraries(${PROJECT_NAME} ${SDL_LIBRARY} ${SDL_MIXER_LIBRARIES} ${SDL_IMAGE_LIBRARIES} ${OPENGL_LIBRARIES} ${LibEpoxy_LIBRARIES} modplug)
+target_link_libraries(${PROJECT_NAME} ${OPENGL_LIBRARIES} ${LibEpoxy_LIBRARIES})
+
+if (${SDL2_FOUND})
+    include_directories(${SDL2_INCLUDE_DIR}
+                        ${SDL2_IMAGE_INCLUDE_DIR}
+                        ${SDL2_MIXER_INCLUDE_DIR})
+
+    target_link_libraries(${PROJECT_NAME} ${SDL2_LIBRARY} ${SDL2_MIXER_LIBRARIES} ${SDL2_IMAGE_LIBRARIES})
+else()
+    include_directories(${SDL_INCLUDE_DIR}
+                        ${SDL_IMAGE_INCLUDE_DIR}
+                        ${SDL_MIXER_INCLUDE_DIR})
+
+    target_link_libraries(${PROJECT_NAME} ${SDL_LIBRARY} ${SDL_MIXER_LIBRARIES} ${SDL_IMAGE_LIBRARIES})
+endif()
 if(UNIX OR MINGW)
    target_link_libraries(${PROJECT_NAME} stdc++fs)
 endif()

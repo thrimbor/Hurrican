@@ -129,7 +129,9 @@ bool DirectGraphicsClass::Init(std::uint32_t dwBreite, std::uint32_t dwHoehe, st
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 0);          // DKS - No need for a depth buffer in this game
     SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 0);  // DKS - Changed this to 0 (Game would not load w/ GL1.2 laptop)
     SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 0);
+#if !SDL_VERSION_ATLEAST(2, 0, 0)
     SDL_GL_SetAttribute(SDL_GL_SWAP_CONTROL, VSync);
+#endif
 
 #if SDL_VERSION_ATLEAST(2, 0, 0)
 #if defined(USE_GLES1)
@@ -152,7 +154,7 @@ bool DirectGraphicsClass::Init(std::uint32_t dwBreite, std::uint32_t dwHoehe, st
     // Setup SDL Screen
     if (isFullscreen) {
 #if SDL_VERSION_ATLEAST(2, 0, 0)
-        flags |= SDL_WINDOW_FULLSCREEN;
+        flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
 #else /* SDL 1.2 */
         flags |= SDL_FULLSCREEN;
 #endif
@@ -162,9 +164,19 @@ bool DirectGraphicsClass::Init(std::uint32_t dwBreite, std::uint32_t dwHoehe, st
     // Create a window. Window mode MUST include SDL_WINDOW_OPENGL for use with OpenGL.
     Window =
         SDL_CreateWindow("Hurrican", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, ScreenWidth, ScreenHeight, flags);
+    if (Window == nullptr) {
+        Protokoll << "Failed to " << ScreenWidth << "x" << ScreenHeight << "x" << ScreenDepth
+                  << "video mode: " << SDL_GetError() << std::endl;
+        return false;
+    }
 
     // Create an OpenGL context associated with the window.
     GLcontext = SDL_GL_CreateContext(Window);
+    if (GLcontext == nullptr) {
+        Protokoll << "Failed to " << ScreenWidth << "x" << ScreenHeight << "x" << ScreenDepth
+                  << "video mode: " << SDL_GetError() << std::endl;
+        return false;
+    }
 #else /* SDL 1.2 */
     // SDL_WM_SetCaption("Hurrican", "Hurrican");
 
@@ -301,10 +313,6 @@ bool DirectGraphicsClass::Init(std::uint32_t dwBreite, std::uint32_t dwHoehe, st
 // --------------------------------------------------------------------------------------
 
 bool DirectGraphicsClass::Exit() {
-#if SDL_VERSION_ATLEAST(2, 0, 0)
-    SDL_GL_DeleteContext(GLcontext);
-    SDL_DestroyWindow(Window);
-#endif
 #if defined(USE_GL2) || defined(USE_GL3)
     Shaders[PROGRAM_COLOR].Close();
     Shaders[PROGRAM_TEXTURE].Close();
@@ -312,6 +320,10 @@ bool DirectGraphicsClass::Exit() {
     RenderBuffer.Close();
 #endif /* USE_FBO */
 #endif /* USE_GL2 || USE_GL3 */
+#if SDL_VERSION_ATLEAST(2, 0, 0)
+    SDL_GL_DeleteContext(GLcontext);
+    SDL_DestroyWindow(Window);
+#endif
 #if defined(USE_EGL_SDL) || defined(USE_EGL_RAW) || defined(USE_EGL_RPI)
     EGL_Close();
 #endif
@@ -805,6 +817,7 @@ void DirectGraphicsClass::SetupFramebuffers() {
             RenderRect.w = (WindowView.h / 3) * 4;
             RenderRect.h = WindowView.h;
         }
+
         RenderRect.x = std::max(0, WindowView.w - RenderRect.w) / 2;
         RenderRect.y = std::max(0, WindowView.h - RenderRect.h) / 2;
 
